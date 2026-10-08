@@ -117,9 +117,18 @@ function login(){
 }
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 
-async function rpc(path){
-  const r = await fetch(SB+"/rest/v1/rpc/rtdb_subtree?p="+encodeURIComponent(path),{headers:HDR});
-  return r.json();
+async function rpc(path){ // paging Range: server memotong 1000 baris/halaman
+  const all = [];
+  for(let off=0;;off+=1000){
+    const r = await fetch(SB+"/rest/v1/rpc/rtdb_subtree?p="+encodeURIComponent(path),
+      {headers:{...HDR,"Range":off+"-"+(off+999)}});
+    if(!r.ok) throw new Error("rpc "+r.status);
+    const page = await r.json();
+    if(!Array.isArray(page)) return page;
+    all.push(...page);
+    if(page.length < 1000) break;
+  }
+  return all;
 }
 async function upsert(rows){
   const r = await fetch(SB+"/rest/v1/rtdb?on_conflict=path",{method:"POST",headers:{...HDR,"Prefer":"resolution=merge-duplicates"},body:JSON.stringify(rows)});
@@ -147,9 +156,13 @@ function fmtCode(rows){ // ubah subtree Licenses -> objek per kode
 function log(code,action,device,detail){
   return upsert([{path:"activations/"+Date.now(), value:{code,action,device:device||"",detail:detail||"",at:new Date().toISOString()}}]);
 }
-function randomCode(){
+const AB = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function randomCode(){ // 12 karakter: huruf + angka acak, tanpa I/O/0/1
   let c;
-  do{ c = ""; for(let i=0;i<12;i++) c += Math.floor(Math.random()*10); } while(licenses[c]);
+  do{
+    c = ""; for(let i=0;i<12;i++) c += AB[Math.floor(Math.random()*AB.length)];
+    if(!/[A-Z]/.test(c) || !/[2-9]/.test(c)) continue; // pastikan campuran
+  } while(licenses[c] || c==="DARMAWAN2026");
   return c;
 }
 async function generate(){
@@ -205,18 +218,19 @@ function render(){
     const st = l.Status||"?";
     let eff = st;
     if(l.valid_until && now > l.valid_until && st==="Valid") eff="Expired";
-    const tag = eff==="Valid"?'<span class="tag t-valid">Valid</span>':eff==="Suspended"?'<span class="tag t-susp">Suspend</span>':eff==="Expired"?'<span class="tag t-exp">Kadaluarsa</span>':'<span class="tag t-rev">Dicabut</span>';
+    const isSuper = l.super===1 || l.code==="DARMAWAN2026";
+    const tag = isSuper?'<span class="tag t-valid">SUPER ADMIN</span>':(eff==="Valid"?'<span class="tag t-valid">Valid</span>':eff==="Suspended"?'<span class="tag t-susp">Suspend</span>':eff==="Expired"?'<span class="tag t-exp">Kadaluarsa</span>':'<span class="tag t-rev">Dicabut</span>');
     const plan = l.plan?planLabel(l.plan):'<span class="tag t-perm">Permanen (legacy)</span>';
     const exp = l.valid_until ? fmt(l.valid_until) : "—";
     const dev = l.device_id ? '<span class="mono">'+l.device_id+'</span><br><span class="mut">'+(l.device_label||"")+'</span>' : '<span class="mut">belum terikat</span>';
-    const act = (eff==="Valid"
+    const act = isSuper?'<span class="mut">terlindungi</span>':(eff==="Valid"
       ? '<button class="ghost" onclick="setStatus(\''+l.code+'\',\'Suspended\')">Suspend</button> <button class="danger" onclick="revoke(\''+l.code+'\')">Revoke</button>'
       : (eff==="Suspended"
         ? '<button class="okay" onclick="setStatus(\''+l.code+'\',\'Valid\')">Aktifkan</button> <button class="danger" onclick="revoke(\''+l.code+'\')">Revoke</button>'
         : (eff==="Expired"
           ? '<select id="ext_'+l.code+'"><option value="7d">+7 hari</option><option value="30d">+30 hari</option><option value="90d">+90 hari</option><option value="permanent">Permanen</option></select> <button onclick="extend(\''+l.code+'\',document.getElementById(\'ext_'+l.code+'\').value)">Perpanjang</button> <button class="danger" onclick="revoke(\''+l.code+'\')">Revoke</button>'
           : '<button class="ghost" onclick="setStatus(\''+l.code+'\',\'Valid\')">Aktifkan</button>')));
-    const reset = l.device_id ? ' <button class="ghost" onclick="resetDevice(\''+l.code+'\')">Reset HP</button>' : '';
+    const reset = (!isSuper && l.device_id && l.device_id) ? ' <button class="ghost" onclick="resetDevice(\''+l.code+'\')">Reset HP</button>' : '';
     return '<tr><td class="mono">'+l.code+'</td><td>'+tag+'</td><td>'+plan+'</td><td>'+exp+'</td><td>'+dev+'</td><td style="white-space:nowrap">'+act+reset+'</td></tr>';
   }).join("");
 }
