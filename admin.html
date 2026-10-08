@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AD Digital Labs — Panel Lisensi</title>
+<style>
+  :root{--bg:#141428;--card:#232347;--acc:#7C4DFF;--acc2:#9C64FF;--ok:#43A047;--warn:#FDD835;--bad:#E53935;--tx:#fff;--mut:#99a}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif}
+  body{background:linear-gradient(135deg,#1A1A2E,#241B4D 45%,#3B1E6E 75%,#1A1A2E);color:var(--tx);min-height:100vh;padding:24px}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-size:26px;letter-spacing:1px}
+  .sub{color:#b3b3cc;font-size:13px;margin:4px 0 18px}
+  .marq{color:#B39DFF;font-style:italic;font-weight:600;font-size:12.5px;margin-bottom:18px;white-space:nowrap;overflow:hidden}
+  .marq span{display:inline-block;animation:mq 14s linear infinite}
+  @keyframes mq{from{transform:translateX(100vw)}to{transform:translateX(-110%)}}
+  .card{background:var(--card);border-radius:20px;padding:18px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  input,select,button{border:0;border-radius:12px;padding:10px 12px;font-size:14px;outline:none}
+  input,select{background:rgba(255,255,255,.08);color:#fff;min-width:110px}
+  input::placeholder{color:#77f}
+  button{cursor:pointer;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  button.ghost{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25)}
+  button.danger{background:linear-gradient(90deg,#c62828,#ef5350)}
+  button.okay{background:linear-gradient(90deg,#2e7d32,#66bb6a)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:#b3b3cc;text-align:left;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.15);font-size:12px}
+  td{padding:9px 6px;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top}
+  .tag{padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;display:inline-block}
+  .t-valid{background:rgba(67,160,71,.18);color:#7bd67f}
+  .t-susp{background:rgba(253,216,53,.15);color:var(--warn)}
+  .t-rev{background:rgba(229,57,53,.15);color:#ff8a80}
+  .t-exp{background:rgba(229,57,53,.15);color:#ff8a80}
+  .t-perm{background:rgba(124,77,255,.18);color:#B39DFF}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  .mut{color:#8f8fa8;font-size:12px}
+  .hide{display:none}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#000c;border:1px solid var(--acc);padding:10px 18px;border-radius:12px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .hist{max-height:240px;overflow:auto;font-size:12.5px}
+  .hist div{padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.06)}
+  #lock{position:fixed;inset:0;background:rgba(10,10,20,.97);display:flex;align-items:center;justify-content:center;z-index:9}
+  #lock .card{width:min(360px,92vw)}
+  .logo{font-size:15px;font-weight:800;color:#B39DFF}
+</style>
+</head>
+<body>
+<div id="lock">
+  <div class="card">
+    <div class="logo">AD Digital Labs</div>
+    <div class="mut" style="margin:2px 0 14px">Panel Admin Lisensi V2</div>
+    <input id="pin" type="password" placeholder="PIN admin" style="width:100%" onkeydown="if(event.key=='Enter')login()">
+    <button style="width:100%;margin-top:10px" onclick="login()">Masuk</button>
+    <div id="pinErr" class="mut" style="margin-top:8px"></div>
+  </div>
+</div>
+<div class="wrap" id="app" class="hide">
+  <h1>PANEL LISENSI V2</h1>
+  <div class="sub">Ludo King · AD Digital Labs — Untuk Anda kami ada</div>
+  <div class="marq"><span>AD Digital Labs ✦ Untuk Anda kami ada ✦ AD Digital Labs ✦ Untuk Anda kami ada</span></div>
+
+  <div class="card">
+    <b>Generate Kode Baru</b>
+    <div class="row" style="margin-top:12px">
+      <input id="genN" type="number" value="10" min="1" max="1000" style="width:90px" title="jumlah">
+      <select id="genPlan">
+        <option value="permanent">Permanen</option>
+        <option value="7d">7 hari</option>
+        <option value="30d">30 hari</option>
+        <option value="90d">90 hari</option>
+      </select>
+      <button onclick="generate()">Generate</button>
+      <span id="genOut" class="mono mut"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <b style="flex:1">Daftar Lisensi</b>
+      <input id="q" placeholder="cari kode…" oninput="render()" style="min-width:160px">
+      <button class="ghost" onclick="load()">Segarkan</button>
+    </div>
+    <div style="overflow:auto">
+    <table id="tbl">
+      <thead><tr><th>Kode</th><th>Status</th><th>Paket</th><th>Kadaluarsa</th><th>Perangkat</th><th>Aksi</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="6" class="mut">memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><b style="flex:1">Riwayat Aktivasi</b><input id="hq" placeholder="filter kode…" oninput="renderHist()" style="min-width:140px"></div>
+    <div class="hist" id="hist"><div class="mut">memuat…</div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ====== KONFIG (ubah PIN di sini) ======
+const PIN = "adlabs";
+const SB = "https://whtsromktkymksuvagrw.supabase.co";
+const KEY = "sb_publishable_oPe8-wtaVI5vhJvKTsaMEA_XFonVUiC";
+const DAY = 86400000;
+const HDR = {"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json"};
+
+let licenses = {};   // {code: {Status,plan,valid_until,device_id,device_label,activated_at}}
+let history = [];    // [{ts,code,action,device,detail}]
+let selCode = null;
+
+function login(){
+  if(document.getElementById('pin').value === PIN){
+    document.getElementById('lock').style.display='none';
+    document.getElementById('app').classList.remove('hide');
+    load();
+  } else document.getElementById('pinErr').textContent='PIN salah';
+}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+
+async function rpc(path){
+  const r = await fetch(SB+"/rest/v1/rpc/rtdb_subtree?p="+encodeURIComponent(path),{headers:HDR});
+  return r.json();
+}
+async function upsert(rows){
+  const r = await fetch(SB+"/rest/v1/rtdb?on_conflict=path",{method:"POST",headers:{...HDR,"Prefer":"resolution=merge-duplicates"},body:JSON.stringify(rows)});
+  if(!r.ok && r.status!==201) throw new Error("upsert "+r.status);
+}
+async function delCode(code){
+  const h={...HDR}; delete h["Content-Type"];
+  await fetch(SB+"/rest/v1/rtdb?path=eq."+encodeURIComponent("Licenses/"+code),{method:"DELETE",headers:h});
+  await fetch(SB+"/rest/v1/rtdb?path=like."+encodeURIComponent("Licenses/"+code+"/%"),{method:"DELETE",headers:h});
+}
+function planMs(plan){ return plan==="permanent"?0:parseInt(plan)*DAY; }
+function planLabel(p){ return p==="permanent"?"Permanen":p.replace("d"," hari"); }
+function fmt(ms){ if(!ms) return "—"; const d=new Date(+ms); return d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"})+" "+d.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}); }
+function fmtCode(rows){ // ubah subtree Licenses -> objek per kode
+  const out = {};
+  for(const r of rows){
+    const p = r.path, v = r.value;
+    if(p==="Licenses"){ if(v&&v.forEach) v.forEach(c=>out[c]={code:c}); continue; }
+    const m = p.match(/^Licenses\/([^/]+)\/(.+)$/);
+    if(!m){ if(/^Licenses\/([^/]+)$/.test(p)) out[v]=out[v]||{code:v}; continue; }
+    (out[m[1]]=out[m[1]]||{code:m[1]})[m[2]] = v;
+  }
+  return out;
+}
+function log(code,action,device,detail){
+  return upsert([{path:"activations/"+Date.now(), value:{code,action,device:device||"",detail:detail||"",at:new Date().toISOString()}}]);
+}
+function randomCode(){
+  let c;
+  do{ c = ""; for(let i=0;i<12;i++) c += Math.floor(Math.random()*10); } while(licenses[c]);
+  return c;
+}
+async function generate(){
+  const n = Math.min(1000, Math.max(1, +document.getElementById('genN').value||1));
+  const plan = document.getElementById('genPlan').value;
+  const rows = []; const made = [];
+  for(let i=0;i<n;i++){
+    const c = randomCode();
+    const vu = planMs(plan) ? Date.now()+planMs(plan) : 0;
+    rows.push({path:"Licenses/"+c, value:c});
+    rows.push({path:"Licenses/"+c+"/Status", value:"Valid"});
+    rows.push({path:"Licenses/"+c+"/Validity", value:"Lifetime"}); // wajib: APK game membaca nilai ini
+    rows.push({path:"Licenses/"+c+"/plan", value:plan});
+    rows.push({path:"Licenses/"+c+"/valid_until", value:vu});
+    rows.push({path:"Licenses/"+c+"/created_at", value:Date.now()});
+    made.push(c);
+  }
+  await upsert(rows);
+  await log(made[0], "generate x"+n, "", plan+" → "+made.join(",").slice(0,80)+(n>3?"…":""));
+  document.getElementById('genOut').textContent = n+" kode dibuat: "+made.slice(0,3).join(", ")+(n>3?"…":"");
+  toast("✅ "+n+" kode "+planLabel(plan)+" dibuat");
+  load();
+}
+async function setStatus(code,status){
+  await upsert([{path:"Licenses/"+code+"/Status",value:status}]);
+  await log(code, status==="Valid"?"activate":status.toLowerCase(), "", "status → "+status);
+  toast("Kode "+code+" → "+status); load();
+}
+async function resetDevice(code){
+  await upsert([{path:"Licenses/"+code+"/device_id",value:""},{path:"Licenses/"+code+"/device_label",value:""}]);
+  await log(code,"reset-device","","device_id dikosongkan");
+  toast("Perangkat kode "+code+" direset"); load();
+}
+async function extend(code,plan){
+  const vu = planMs(plan)? Date.now()+planMs(plan):0;
+  await upsert([{path:"Licenses/"+code+"/plan",value:plan},{path:"Licenses/"+code+"/valid_until",value:vu}]);
+  if(vu) await upsert([{path:"Licenses/"+code+"/Status",value:"Valid"}]);
+  else await upsert([{path:"Licenses/"+code+"/Status",value:"Valid"}]);
+  await log(code,"extend","","paket → "+planLabel(plan));
+  toast("Kode "+code+" diperpanjang ("+planLabel(plan)+")"); load();
+}
+async function revoke(code){
+  if(!confirm("Cabut (revoke) kode "+code+"? Kode jadi tidak terpakai lagi.")) return;
+  await setStatus(code,"Revoked");
+}
+function render(){
+  const q = document.getElementById('q').value.trim();
+  const body = document.getElementById('rows');
+  const list = Object.values(licenses).filter(l=>!q||l.code.includes(q));
+  if(!list.length){ body.innerHTML='<tr><td colspan="6" class="mut">tidak ada</td></tr>'; return; }
+  const now = Date.now();
+  body.innerHTML = list.sort((a,b)=>a.code.localeCompare(b.code)).map(l=>{
+    const st = l.Status||"?";
+    let eff = st;
+    if(l.valid_until && now > l.valid_until && st==="Valid") eff="Expired";
+    const tag = eff==="Valid"?'<span class="tag t-valid">Valid</span>':eff==="Suspended"?'<span class="tag t-susp">Suspend</span>':eff==="Expired"?'<span class="tag t-exp">Kadaluarsa</span>':'<span class="tag t-rev">Dicabut</span>';
+    const plan = l.plan?planLabel(l.plan):'<span class="tag t-perm">Permanen (legacy)</span>';
+    const exp = l.valid_until ? fmt(l.valid_until) : "—";
+    const dev = l.device_id ? '<span class="mono">'+l.device_id+'</span><br><span class="mut">'+(l.device_label||"")+'</span>' : '<span class="mut">belum terikat</span>';
+    const act = (eff==="Valid"
+      ? '<button class="ghost" onclick="setStatus(\''+l.code+'\',\'Suspended\')">Suspend</button> <button class="danger" onclick="revoke(\''+l.code+'\')">Revoke</button>'
+      : (eff==="Suspended"
+        ? '<button class="okay" onclick="setStatus(\''+l.code+'\',\'Valid\')">Aktifkan</button> <button class="danger" onclick="revoke(\''+l.code+'\')">Revoke</button>'
+        : (eff==="Expired"
+          ? '<select id="ext_'+l.code+'"><option value="7d">+7 hari</option><option value="30d">+30 hari</option><option value="90d">+90 hari</option><option value="permanent">Permanen</option></select> <button onclick="extend(\''+l.code+'\',document.getElementById(\'ext_'+l.code+'\').value)">Perpanjang</button> <button class="danger" onclick="revoke(\''+l.code+'\')">Revoke</button>'
+          : '<button class="ghost" onclick="setStatus(\''+l.code+'\',\'Valid\')">Aktifkan</button>')));
+    const reset = l.device_id ? ' <button class="ghost" onclick="resetDevice(\''+l.code+'\')">Reset HP</button>' : '';
+    return '<tr><td class="mono">'+l.code+'</td><td>'+tag+'</td><td>'+plan+'</td><td>'+exp+'</td><td>'+dev+'</td><td style="white-space:nowrap">'+act+reset+'</td></tr>';
+  }).join("");
+}
+function renderHist(){
+  const q = document.getElementById('hq').value.trim();
+  const box = document.getElementById('hist');
+  const list = history.filter(h=>!q||(h.code&&h.code.includes(q))).sort((a,b)=>b.ts-a.ts).slice(0,200);
+  box.innerHTML = list.length? list.map(h=>
+    '<div><span class="mono mut">'+new Date(+h.ts).toLocaleString("id-ID")+'</span> · <b class="mono">'+(h.code||"")+'</b> · '+h.action+(h.device?' · HP <span class="mono">'+h.device+'</span>':'')+(h.detail?' · <span class="mut">'+h.detail+'</span>':'')+'</div>'
+  ).join("") : '<div class="mut">belum ada riwayat</div>';
+}
+async function load(){
+  try{
+    const [licRows, actRows] = await Promise.all([rpc("Licenses"), rpc("activations")]);
+    licenses = fmtCode(licRows);
+    history = (actRows||[]).map(r=>({ts:r.path.split("/")[1], ...r.value}));
+    render(); renderHist();
+  }catch(e){ toast("Gagal memuat: "+e.message); }
+}
+</script>
+</body>
+</html>
